@@ -1,0 +1,54 @@
+name: Build APK Fixed
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set Android SDK
+        run: |
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
+          echo "/usr/local/lib/android/sdk/platform-tools" >> "$GITHUB_PATH"
+          echo "/usr/local/lib/android/sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install Gradle 9.6.1
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-9.6.1-bin.zip
+          unzip -q gradle-9.6.1-bin.zip
+          echo "$GITHUB_WORKSPACE/gradle-9.6.1/bin" >> "$GITHUB_PATH"
+          gradle --version
+
+      - name: Extract fixed project
+        run: |
+          unzip -o OrderScanKeyboard_FIXED.zip
+          test -f OrderScanKeyboard/app/build.gradle.kts
+
+      - name: Build APK
+        working-directory: OrderScanKeyboard
+        run: gradle assembleDebug --stacktrace --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrderScanKeyboard-debug
+          path: OrderScanKeyboard/app/build/outputs/apk/debug/*.apk
